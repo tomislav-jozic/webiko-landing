@@ -24,7 +24,11 @@
       "Bash(node menu-anim.mjs)",
       "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/menu-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/menu-anim.mjs)",
       "Bash(grep -n \"closeContact = useCallback\\\\|const headingText\\\\|<nav$\\\\|<nav \" /Users/tozich/sites/webiko-landing/components/WebikoStage.tsx)",
-      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/sheet-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/sheet-anim.mjs *)"
+      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/sheet-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/sheet-anim.mjs *)",
+      "Bash(node grain-check.mjs)",
+      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/grain-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/grain-check.mjs)",
+      "Bash(node homepage-grain.mjs)",
+      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/homepage-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/homepage-grain.mjs)"
     ],
     "additionalDirectories": [
       "/private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad"
