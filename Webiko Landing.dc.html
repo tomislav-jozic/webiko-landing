@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<style>
+  html, body { margin: 0; padding: 0; background: oklch(9% 0.015 110); overflow: hidden; height: 100%; }
+  * { box-sizing: border-box; }
+</style>
+</helmet>
+<div id="webiko-stage" style="position:fixed;inset:0;overflow:hidden;cursor:default;" onMouseMove="{{ handleMove }}" onDoubleClick="{{ resetOrder }}">
+  <div style="{{ bgStyle }}"></div>
+  <div style="{{ heroStyle }}">
+    <div id="webiko-word" style="{{ wordStyle }}">
+      <sc-for list="{{ letters }}" as="l" hint-placeholder-count="10">
+        <span style="{{ l.style }}" onMouseDown="{{ l.handleDown }}">{{ l.char }}</span>
+      </sc-for>
+    </div>
+  </div>
+
+  <div style="{{ contactPanelStyle }}">
+    <div style="{{ backBtnStyle }}" onClick="{{ closeContact }}">&#8592; Back</div>
+    <div id="webiko-heading" style="{{ contactHeadingStyle }}">{{ panelHeading }}</div>
+    <sc-if value="{{ isTbd }}" hint-placeholder-val="{{ false }}">
+      <div style="{{ tbdStyle }}">TBD</div>
+    </sc-if>
+    <sc-if value="{{ isContact }}" hint-placeholder-val="{{ false }}">
+      <sc-if value="{{ submitted }}" hint-placeholder-val="{{ false }}">
+        <div style="{{ tbdStyle }}">Thanks — we'll be in touch.</div>
+      </sc-if>
+      <sc-if value="{{ notSubmitted }}" hint-placeholder-val="{{ true }}">
+        <div style="width:min(480px,80vw);">
+          <form onSubmit="{{ handleSubmit }}" style="display:flex;flex-direction:column;gap:24px;">
+            <input placeholder="Name" required="" style="{{ inputStyle }}"></input>
+            <input placeholder="Email" type="email" required="" style="{{ inputStyle }}"></input>
+            <textarea placeholder="Message" rows="4" required="" style="{{ textareaStyle }}"></textarea>
+            <button type="submit" style="{{ submitStyle }}">Send</button>
+          </form>
+        </div>
+      </sc-if>
+    </sc-if>
+  </div>
+
+  <div id="webiko-morph" style="{{ morphStyle }}">{{ morphLabel }}</div>
+
+  <div id="webiko-ham" style="{{ hamButtonStyle }}" onClick="{{ toggleMenu }}" onMouseEnter="{{ hamEnter }}" onMouseLeave="{{ hamLeave }}">
+    <div style="position:relative;display:flex;flex-direction:column;gap:6px;">
+      <span class="ham-line" style="{{ hamLine1 }}"></span>
+      <span class="ham-line" style="{{ hamLine2 }}"></span>
+      <span class="ham-line" style="{{ hamLine3 }}"></span>
+    </div>
+  </div>
+
+  <div style="{{ overlayStyle }}">
+    <sc-for list="{{ menuItems }}" as="item" hint-placeholder-count="4">
+      <div style="{{ item.style }}" onClick="{{ item.onSelect }}" onMouseEnter="{{ item.onEnter }}" onMouseLeave="{{ item.onLeave }}" data-idx="{{ item.idx }}">{{ item.label }}</div>
+    </sc-for>
+  </div>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{}">
+class Component extends DCLogic {
+  state = { mx: null, my: null, activated: false, menuOpen: false, hamHover: false, activeView: null, submitted: false, menuHoverIndex: null, menuWeights: [300, 300, 300] };
+  raf = null;
+  totalMove = 0;
+
+  handleMove = (e) => {
+    const x = e.clientX, y = e.clientY;
+    if (this._lastX != null) {
+      const dx = x - this._lastX, dy = y - this._lastY;
+      this.totalMove += Math.sqrt(dx * dx + dy * dy);
+    }
+    this._lastX = x;
+    this._lastY = y;
+    this._mx = x;
+    this._my = y;
+    if (!this.raf) {
+      this.raf = requestAnimationFrame(() => {
+        this.raf = null;
+        const activated = this.state.activated || this.totalMove > 50;
+        this.setState({ mx: this._mx, my: this._my, activated });
+      });
+    }
+  };
+
+  getLayout() {
+    const word = 'webiko.dev';
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const len = word.length;
+    const spanRatio = 0.72;
+    const startX = w * (1 - spanRatio) / 2;
+    const letterStep = len > 1 ? (w * spanRatio) / (len - 1) : w * spanRatio;
+    return { word, w, len, startX, letterStep };
+  }
+
+  slotFromX(x) {
+    const wordEl = document.getElementById('webiko-word');
+    if (!wordEl) return 0;
+    const spans = wordEl.children;
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < spans.length; i++) {
+      const r = spans[i].getBoundingClientRect();
+      const cx = r.left + r.width / 2;
+      const d = Math.abs(x - cx);
+      if (d < bestDist) {
+        bestDist = d;
+        best = i;
+      }
+    }
+    return best;
+  }
+
+  componentDidMount() {
+    this._onMove = (e) => {
+      this._pointerX = e.clientX;
+      if (!this.dragging || !this.dragEl || !window.gsap) return;
+      const dx = e.clientX - this.dragStartX;
+      const dy = e.clientY - this.dragStartY;
+      window.gsap.set(this.dragEl, { x: dx, y: dy * 0.4, rotation: dx * 0.04 });
+    };
+    this._onUp = () => {
+      if (!this.dragging) return;
+      this.dragging = false;
+      const dragEl = this.dragEl;
+      const fromSlot = this.dragSlot;
+      if (dragEl && window.gsap) {
+        window.gsap.to(dragEl, { x: 0, y: 0, rotation: 0, duration: 0.7, ease: 'elastic.out(1, 0.4)' });
+      }
+      if (fromSlot != null && this._pointerX != null) {
+        const toSlot = this.slotFromX(this._pointerX);
+        if (toSlot !== fromSlot) {
+          this.setState((s) => {
+            const len = this.getLayout().len;
+            const order = s.order ? s.order.slice() : Array.from({ length: len }, (_, i) => i);
+            const tmp = order[fromSlot];
+            order[fromSlot] = order[toSlot];
+            order[toSlot] = tmp;
+            return { order };
+          });
+        }
+      }
+      this.dragEl = null;
+      this.dragSlot = null;
+    };
+    this._onWheel = (e) => {
+      if (!window.gsap) return;
+      e.preventDefault();
+      const wordEl = document.getElementById('webiko-word');
+      if (!wordEl) return;
+      this.scaleAccum = Math.max(0.6, Math.min(1.8, (this.scaleAccum ?? 1) - e.deltaY * 0.0012));
+      window.gsap.set(wordEl, { scale: this.scaleAccum });
+      clearTimeout(this._wheelTimer);
+      this._wheelTimer = setTimeout(() => {
+        window.gsap.to(wordEl, { scale: 1, duration: 1.1, ease: 'elastic.out(1, 0.25)' });
+        this.scaleAccum = 1;
+      }, 150);
+    };
+    window.addEventListener('mousemove', this._onMove);
+    window.addEventListener('mouseup', this._onUp);
+    const stage = document.getElementById('webiko-stage');
+    if (stage) stage.addEventListener('wheel', this._onWheel, { passive: false });
+  }
+
+  toggleMenu = () => {
+    this.setState((s) => ({ menuOpen: !s.menuOpen }));
+  };
+
+  hamEnter = () => this.setState({ hamHover: true });
+  hamLeave = () => this.setState({ hamHover: false });
+
+  itemEnter = (i) => {
+    const options = [500, 600, 700, 800, 900];
+    const target = options[Math.floor(Math.random() * options.length)];
+    this.setState((s) => {
+      const w = s.menuWeights.slice();
+      w[i] = target;
+      return { menuWeights: w };
+    });
+  };
+
+  itemLeave = (i) => {
+    this.setState((s) => {
+      const w = s.menuWeights.slice();
+      w[i] = 300;
+      return { menuWeights: w };
+    });
+  };
+
+  selectView = (label, e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const cs = window.getComputedStyle(e.currentTarget);
+    this.setState({
+      menuOpen: false,
+      heroHidden: true,
+      activeView: label.toLowerCase(),
+      revealed: false,
+      submitted: false,
+      morph: {
+        label,
+        left: rect.left,
+        top: rect.top,
+        fontSize: parseFloat(cs.fontSize),
+        fontWeight: parseFloat(cs.fontWeight) || 300
+      }
+    });
+    let tries = 0;
+    const tryAnimate = () => {
+      const morphEl = document.getElementById('webiko-morph');
+      if (!morphEl || !window.gsap) {
+        tries++;
+        if (tries < 20) {
+          requestAnimationFrame(tryAnimate);
+        } else {
+          this.setState({ revealed: true, morph: null });
+        }
+        return;
+      }
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      const targetLeft = w * 0.08;
+      const targetTop = h * 0.26;
+      const targetFontSize = Math.min(56, Math.max(32, w * 0.05));
+      const dx = targetLeft - rect.left;
+      const dy = targetTop - rect.top;
+      const scale = targetFontSize / (parseFloat(cs.fontSize) || targetFontSize);
+      window.gsap.set(morphEl, { x: 0, y: 0, scale: 1, transformOrigin: 'left top' });
+      window.gsap.to(morphEl, {
+        x: dx,
+        y: dy,
+        scale: scale,
+        duration: 0.85,
+        ease: 'power3.inOut',
+        onComplete: () => {
+          window.gsap.set(morphEl, { x: 0, y: 0, scale: 1 });
+          this.setState({ revealed: true, morph: null });
+        }
+      });
+    };
+    requestAnimationFrame(tryAnimate);
+  };
+
+  closeContact = () => {
+    this.setState({ activeView: null, heroHidden: false, submitted: false, revealed: false });
+  };
+
+  handleSubmit = (e) => {
+    e.preventDefault();
+    this.setState({ submitted: true });
+  };
+
+  resetOrder = () => {
+    this.setState({ order: null });
+  };
+
+  startDrag = (e, slot) => {
+    this.dragging = true;
+    this.dragSlot = slot;
+    this.dragEl = e.currentTarget;
+    this.dragStartX = e.clientX;
+    this.dragStartY = e.clientY;
+    this._pointerX = e.clientX;
+    if (window.gsap) window.gsap.killTweensOf(this.dragEl);
+  };
+
+  componentWillUnmount() {
+    if (this.raf) cancelAnimationFrame(this.raf);
+    window.removeEventListener('mousemove', this._onMove);
+    window.removeEventListener('mouseup', this._onUp);
+    const stage = document.getElementById('webiko-stage');
+    if (stage) stage.removeEventListener('wheel', this._onWheel);
+    clearTimeout(this._wheelTimer);
+    clearTimeout(this._viewTimer);
+    if (this._itemTimers) Object.values(this._itemTimers).forEach(clearTimeout);
+  }
+
+  renderVals() {
+    const { word, w, len, startX, letterStep } = this.getLayout();
+    const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const mx = this.state.mx ?? w / 2;
+    const my = this.state.my ?? h / 2;
+
+    const order = this.state.order ?? Array.from({ length: len }, (_, i) => i);
+    const rawIndex = len > 1 ? (mx - startX) / letterStep : 0;
+    const centerIndex = this.state.activated
+      ? Math.round(Math.max(0, Math.min(len - 1, rawIndex)))
+      : 8;
+
+    const letters = order.map((charIndex, i) => {
+      const ch = word[charIndex];
+      const indexDist = Math.abs(i - centerIndex);
+      const weight = indexDist <= 1 ? 900 : 150;
+      return {
+        char: ch,
+        handleDown: (e) => this.startDrag(e, i),
+        style: {
+          display: 'inline-block',
+          color: '#ffffff',
+          cursor: 'grab',
+          pointerEvents: 'auto',
+          fontVariationSettings: "'wght' " + weight,
+          fontWeight: weight,
+          textShadow: weight >= 900
+            ? '0 0 10px rgba(255,255,255,0.5), 0 0 24px rgba(255,255,255,0.22)'
+            : '0 0 0 rgba(255,255,255,0)',
+          transition: 'font-variation-settings 90ms ease-out, text-shadow 250ms ease-out'
+        }
+      };
+    });
+
+    const nx = Math.min(1, Math.max(0, mx / w));
+    const ny = Math.min(1, Math.max(0, my / h));
+    const hue = 95 + nx * 25;
+    const light = 8 + ny * 10;
+    const chroma = 0.012 + (1 - Math.abs(nx - 0.5) * 2) * 0.02;
+    const bgColor = 'oklch(' + light.toFixed(1) + '% ' + chroma.toFixed(3) + ' ' + hue.toFixed(1) + ')';
+
+    return {
+      letters,
+      handleMove: this.handleMove,
+      resetOrder: this.resetOrder,
+      toggleMenu: this.toggleMenu,
+      hamEnter: this.hamEnter,
+      hamLeave: this.hamLeave,
+      hamButtonStyle: {
+        position: 'fixed', top: '28px', right: '28px', zIndex: 30,
+        width: '56px', height: '56px', borderRadius: '50%',
+        border: (this.state.hamHover || this.state.menuOpen) ? '3px solid #ffffff' : '1.5px solid #ffffff',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        cursor: 'pointer', overflow: 'hidden', background: 'transparent',
+        transition: 'border-width 120ms ease'
+      },
+      hamLine1: {
+        width: '22px', height: '3px', background: '#ffffff', borderRadius: '2px', pointerEvents: 'none',
+        transition: 'transform 450ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms ease',
+        transform: this.state.menuOpen ? 'translateY(8px) rotate(45deg)' : 'none'
+      },
+      hamLine2: {
+        width: '22px', height: '3px', background: '#ffffff', borderRadius: '2px', pointerEvents: 'none',
+        transition: 'opacity 200ms ease',
+        opacity: this.state.menuOpen ? 0 : 1
+      },
+      hamLine3: {
+        width: '22px', height: '3px', background: '#ffffff', borderRadius: '2px', pointerEvents: 'none',
+        transition: 'transform 450ms cubic-bezier(0.34, 1.56, 0.64, 1), opacity 300ms ease',
+        transform: this.state.menuOpen ? 'translateY(-8px) rotate(-45deg)' : 'none'
+      },
+      overlayStyle: {
+        position: 'fixed', inset: 0, zIndex: 25,
+        background: 'oklch(16% 0.03 110)',
+        display: 'flex', flexDirection: 'column',
+        alignItems: 'flex-start', justifyContent: 'center',
+        gap: '18px', paddingLeft: '8vw',
+        clipPath: this.state.menuOpen ? 'circle(150% at 100% 0%)' : 'circle(0% at 100% 0%)',
+        transition: 'clip-path 650ms cubic-bezier(0.65, 0, 0.35, 1)',
+        pointerEvents: this.state.menuOpen ? 'auto' : 'none'
+      },
+      closeContact: this.closeContact,
+      handleSubmit: this.handleSubmit,
+      submitted: this.state.submitted,
+      notSubmitted: !this.state.submitted,
+      heroStyle: {
+        position: 'fixed', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
+        pointerEvents: 'none',
+        opacity: this.state.heroHidden ? 0 : 1,
+        transition: 'opacity 400ms ease'
+      },
+      contactPanelStyle: {
+        position: 'fixed', inset: 0, zIndex: 10,
+        display: 'flex', flexDirection: 'column', justifyContent: 'flex-start',
+        paddingLeft: '8vw', paddingTop: '26vh',
+        opacity: this.state.revealed ? 1 : 0,
+        pointerEvents: this.state.revealed ? 'auto' : 'none',
+        transition: 'opacity 600ms ease'
+      },
+      isContact: this.state.activeView === 'contact',
+      isTbd: !!this.state.activeView && this.state.activeView !== 'contact',
+      panelHeading: this.state.activeView === 'services' ? 'Services' : this.state.activeView === 'work' ? 'Work' : this.state.activeView === 'contact' ? 'Contact' : '',
+      morphLabel: this.state.morph ? this.state.morph.label : '',
+      morphStyle: {
+        position: 'fixed',
+        left: (this.state.morph ? this.state.morph.left : 0) + 'px',
+        top: (this.state.morph ? this.state.morph.top : 0) + 'px',
+        fontSize: (this.state.morph ? this.state.morph.fontSize : 32) + 'px',
+        fontWeight: 300,
+        fontFamily: "'Inter', sans-serif",
+        color: '#ffffff',
+        zIndex: 40,
+        pointerEvents: 'none',
+        whiteSpace: 'nowrap',
+        opacity: this.state.morph ? 1 : 0,
+        visibility: this.state.morph ? 'visible' : 'hidden'
+      },
+      tbdStyle: {
+        color: '#ffffff', fontFamily: "'Inter', sans-serif", fontSize: '20px',
+        fontWeight: 300, opacity: 0.5, marginTop: '18px'
+      },
+      backBtnStyle: {
+        position: 'fixed', top: '40px', left: '32px', color: '#ffffff', fontFamily: "'Inter', sans-serif",
+        fontSize: '15px', cursor: 'pointer', opacity: 0.75
+      },
+      contactHeadingStyle: {
+        color: '#ffffff', fontFamily: "'Inter', sans-serif", fontSize: 'clamp(32px, 5vw, 56px)',
+        fontWeight: 300, marginBottom: '32px',
+        opacity: this.state.revealed ? 1 : 0
+      },
+      inputStyle: {
+        background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.4)',
+        color: '#ffffff', fontSize: '18px', padding: '10px 2px', outline: 'none', fontFamily: "'Inter', sans-serif"
+      },
+      textareaStyle: {
+        background: 'transparent', border: 'none', borderBottom: '1px solid rgba(255,255,255,0.4)',
+        color: '#ffffff', fontSize: '18px', padding: '10px 2px', outline: 'none', fontFamily: "'Inter', sans-serif",
+        resize: 'none'
+      },
+      submitStyle: {
+        background: '#ffffff', color: 'oklch(14% 0.02 110)', border: 'none', borderRadius: '999px',
+        padding: '14px 30px', fontSize: '16px', fontWeight: 600, cursor: 'pointer', alignSelf: 'flex-start',
+        fontFamily: "'Inter', sans-serif", marginTop: '8px'
+      },
+      menuItems: ['Services', 'Work', 'Contact'].map((label, i) => {
+        const weight = this.state.menuWeights[i] ?? 300;
+        return {
+          label,
+          onSelect: (e) => this.selectView(label, e),
+          onEnter: () => this.itemEnter(i),
+          onLeave: () => this.itemLeave(i),
+          style: {
+            fontFamily: "'Inter', sans-serif",
+            color: '#ffffff',
+            fontSize: 'clamp(36px, 6vw, 72px)',
+            fontVariationSettings: "'wght' " + weight,
+            fontWeight: weight,
+            cursor: 'pointer',
+            opacity: this.state.menuOpen ? 1 : 0,
+            transform: this.state.menuOpen ? 'translateY(0px)' : 'translateY(24px)',
+            transition: 'opacity 500ms ease ' + (i * 70) + 'ms, transform 500ms ease ' + (i * 70) + 'ms, font-variation-settings 450ms cubic-bezier(0.34, 1.56, 0.64, 1)'
+          }
+        };
+      }),
+      wordStyle: {
+        fontFamily: "'Inter', sans-serif",
+        fontSize: 'clamp(56px,11vw,170px)',
+        whiteSpace: 'nowrap',
+        display: 'flex',
+        letterSpacing: '-0.01em'
+      },
+      bgStyle: {
+        position: 'fixed',
+        inset: 0,
+        backgroundColor: bgColor,
+        transition: 'background-color 220ms ease-out'
+      }
+    };
+  }
+}
+</script>
+</body>
+</html>
