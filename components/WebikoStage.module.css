@@ -35,6 +35,9 @@
   color: #ffffff;
   cursor: grab;
   pointer-events: auto;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-user-drag: none;
   transition:
     font-variation-settings 90ms ease-out,
     text-shadow 250ms ease-out;
