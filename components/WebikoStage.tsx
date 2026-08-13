@@ -28,6 +28,30 @@ type MorphState = {
   fontSize: number;
 };
 
+// The overlay's leading (left) edge is animated as several independent
+// points rather than one straight line, so it ripples in like a dropped
+// sheet instead of sliding on rails.
+const SHEET_EDGE_POINTS = 7;
+const SHEET_CLOSED_X = 130;
+const SHEET_OPEN_X = 0;
+
+type SheetPoint = { x: number; y: number };
+
+function makeSheetPoints(x: number): SheetPoint[] {
+  return Array.from({ length: SHEET_EDGE_POINTS }, (_, i) => ({
+    x,
+    y: (i / (SHEET_EDGE_POINTS - 1)) * 100,
+  }));
+}
+
+function sheetClipPath(points: SheetPoint[]) {
+  const edge = [...points]
+    .reverse()
+    .map((p) => `${p.x}% ${p.y}%`)
+    .join(", ");
+  return `polygon(100% 0%, 100% 100%, ${edge})`;
+}
+
 type GsapModule = (typeof import("gsap"))["gsap"];
 
 function getLayout(width: number) {
@@ -67,8 +91,10 @@ export default function WebikoStage() {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const wordRef = useRef<HTMLHeadingElement | null>(null);
   const morphRef = useRef<HTMLDivElement | null>(null);
+  const overlayRef = useRef<HTMLElement | null>(null);
   const letterRefs = useRef<Array<HTMLSpanElement | null>>([]);
   const gsapRef = useRef<GsapModule | null>(null);
+  const sheetPointsRef = useRef<SheetPoint[]>(makeSheetPoints(SHEET_CLOSED_X));
 
   const reducedMotion = usePrefersReducedMotion();
 
@@ -344,6 +370,31 @@ export default function WebikoStage() {
     };
   }, [morph, reducedMotion]);
 
+  // Ripple the menu overlay's leading edge open/closed like a dropped
+  // sheet: each point along the edge settles independently instead of the
+  // whole edge moving as one rigid line.
+  useEffect(() => {
+    const gsapMod = gsapRef.current;
+    const el = overlayRef.current;
+    if (!gsapMod || !el) return;
+
+    const points = sheetPointsRef.current;
+    const targetX = menuOpen ? SHEET_OPEN_X : SHEET_CLOSED_X;
+
+    const tween = gsapMod.to(points, {
+      x: targetX,
+      duration: reducedMotion ? 0 : 0.75,
+      ease: reducedMotion ? "none" : "elastic.out(1, 0.5)",
+      stagger: reducedMotion ? 0 : { each: 0.05, from: "start" },
+      onUpdate: () => {
+        el.style.clipPath = sheetClipPath(points);
+      },
+    });
+    return () => {
+      tween.kill();
+    };
+  }, [menuOpen, reducedMotion]);
+
   const closeContact = useCallback(() => {
     setActiveView(null);
     setHeroHidden(false);
@@ -583,6 +634,7 @@ export default function WebikoStage() {
       </button>
 
       <nav
+        ref={overlayRef}
         id="webiko-menu"
         className={`${styles.overlay} ${menuOpen ? styles.overlayOpen : ""}`}
         aria-label="Main"

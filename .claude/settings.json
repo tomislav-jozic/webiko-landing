@@ -22,7 +22,12 @@
       "Bash(grep -v \"08ttfj81-47mu.js$\")",
       "Bash(timeout 30 bash -c 'until curl -sf http://localhost:3000 >/dev/null; do sleep 1; done')",
       "Bash(node menu-anim.mjs)",
-      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/menu-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/menu-anim.mjs)"
+      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/menu-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/menu-anim.mjs)",
+      "Bash(grep -n \"closeContact = useCallback\\\\|const headingText\\\\|<nav$\\\\|<nav \" /Users/tozich/sites/webiko-landing/components/WebikoStage.tsx)",
+      "Bash(rm -f /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/sheet-*.png /private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad/sheet-anim.mjs *)"
+    ],
+    "additionalDirectories": [
+      "/private/tmp/claude-501/-Users-tozich-sites-webiko-landing/92c97e11-3d19-4422-b94e-7162f201db71/scratchpad"
     ]
   }
 }

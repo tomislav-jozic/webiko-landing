@@ -225,15 +225,15 @@
   gap: 18px;
   padding-left: 8vw;
   margin: 0;
-  transform: translateX(100%);
-  box-shadow: -60px 0 120px rgba(0, 0, 0, 0.45);
-  transition: transform 650ms cubic-bezier(0.34, 1.76, 0.64, 1);
+  clip-path: polygon(100% 0%, 100% 100%, 130% 100%, 130% 0%);
+  filter: drop-shadow(-40px 0 60px rgba(0, 0, 0, 0.45));
+  transition: clip-path 650ms cubic-bezier(0.34, 1.76, 0.64, 1);
   pointer-events: none;
   list-style: none;
 }
 
 .overlayOpen {
-  transform: translateX(0);
+  clip-path: polygon(100% 0%, 100% 100%, 0% 100%, 0% 0%);
   pointer-events: auto;
 }
 
