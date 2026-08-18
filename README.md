@@ -82,9 +82,12 @@ npm run typecheck
 ## Notes
 
 - The whole experience is a single view (no real routing) — Services and
-  Work intentionally still show "TBD," matching the original prototype.
-  If/when there's real content for those, it's worth asking whether they
-  should become their own routes (`/services`, `/work`) for that content's
-  own SEO, rather than staying JS-only panels on `/`.
+  Work now carry real copy (see `SERVICES` / `WORK_STACK` in
+  `components/WebikoStage.tsx`), but the panels themselves are still
+  JS-only overlays on `/`, not separate pages. Since that copy is real
+  content now, it's worth revisiting whether Services and Work should
+  become their own routes (`/services`, `/work`) for their own SEO
+  (crawlable, indexable, linkable), rather than staying hidden behind a
+  client-side menu.
 - Deploy anywhere that runs Node (Vercel is the path of least resistance
   for Next.js — automatic image/OG generation, edge caching, etc.).

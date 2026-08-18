@@ -21,6 +21,44 @@ const MENU_ITEMS = ["Services", "Work", "Contact"] as const;
 type MenuLabel = (typeof MENU_ITEMS)[number];
 type ViewId = "services" | "work" | "contact";
 
+const SERVICES = [
+  {
+    title: "Design → code",
+    description:
+      "Pixel-perfect, every time — spacing, motion and states matched to the file, not eyeballed.",
+  },
+  {
+    title: "Rapid prototyping",
+    description:
+      "Blank canvas to a clickable build in days. Fast enough to test an idea before it's fully specced.",
+  },
+  {
+    title: "WordPress",
+    description:
+      "Custom themes, plugins and headless builds — we've shipped more WordPress sites than we can count.",
+  },
+  {
+    title: "Laravel",
+    description:
+      "Full-stack PHP, battle-tested since Laravel 6. APIs, admin panels, queues — the plumbing that keeps things running.",
+  },
+  {
+    title: "React & frontend architecture",
+    description:
+      "One of us led a React team before we started Webiko. Component systems and state built to be handed off, not just handed in.",
+  },
+] as const;
+
+const WORK_STACK = [
+  "WordPress",
+  "Laravel",
+  "PHP",
+  "React",
+  "Next.js",
+  "TypeScript",
+  "Figma → code",
+] as const;
+
 type MorphState = {
   label: string;
   left: number;
@@ -134,6 +172,7 @@ export default function WebikoStage() {
 
   const scaleAccumRef = useRef(1);
   const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const heroHiddenRef = useRef(false);
 
   // Load GSAP off the critical path — it's only needed once the visitor
   // interacts, so it shouldn't block first paint / TBT.
@@ -154,6 +193,10 @@ export default function WebikoStage() {
     window.addEventListener("resize", update);
     return () => window.removeEventListener("resize", update);
   }, []);
+
+  useEffect(() => {
+    heroHiddenRef.current = heroHidden;
+  }, [heroHidden]);
 
   const slotFromX = useCallback((x: number) => {
     let best = 0;
@@ -240,6 +283,10 @@ export default function WebikoStage() {
     };
 
     const onWheel = (e: WheelEvent) => {
+      // A panel (Services/Work/Contact) is open over the hero — let the
+      // browser scroll it natively instead of hijacking the wheel for the
+      // wordmark's zoom pulse.
+      if (heroHiddenRef.current) return;
       const gsapMod = gsapRef.current;
       if (!gsapMod) return;
       e.preventDefault();
@@ -527,13 +574,55 @@ export default function WebikoStage() {
               {headingText}
             </h2>
 
-            {activeView !== "contact" && <p className={styles.tbd}>TBD</p>}
+            {activeView === "services" && (
+              <ul className={styles.serviceList}>
+                {SERVICES.map((service) => (
+                  <li key={service.title} className={styles.serviceItem}>
+                    <span className={styles.serviceTitle}>
+                      {service.title}
+                    </span>
+                    <span className={styles.serviceDesc}>
+                      {service.description}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {activeView === "work" && (
+              <>
+                <p className={styles.workIntro}>
+                  Webiko is a micro team — a couple of us, not an agency
+                  with layers between you and the code. Between us: agency
+                  work, product work, a stint leading a React team, and
+                  years split across WordPress, Laravel and React. Small
+                  enough to move fast, senior enough to skip the
+                  hand-holding.
+                </p>
+                <ul className={styles.tagList}>
+                  {WORK_STACK.map((tag) => (
+                    <li key={tag} className={styles.tag}>
+                      {tag}
+                    </li>
+                  ))}
+                </ul>
+                <p className={styles.workNote}>
+                  Full case studies are on their way. In the meantime, get in
+                  touch and we&apos;ll walk you through recent work directly.
+                </p>
+              </>
+            )}
 
             {activeView === "contact" &&
               (submitted ? (
                 <p className={styles.tbd}>Thanks — we&apos;ll be in touch.</p>
               ) : (
                 <div className={styles.formWrap}>
+                  <p className={styles.contactIntro}>
+                    Got a project, or just a question? You&apos;ll hear back
+                    from one of us directly — no account managers in
+                    between.
+                  </p>
                   <form className={styles.form} onSubmit={handleSubmit}>
                     <label className="visually-hidden" htmlFor="contact-name">
                       Name

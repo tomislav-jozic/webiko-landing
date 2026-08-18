@@ -30,7 +30,7 @@ export default function OpengraphImage() {
             fontWeight: 300,
           }}
         >
-          Web design & development studio
+          Pixel-perfect frontend, WordPress & Laravel
         </div>
       </div>
     ),
