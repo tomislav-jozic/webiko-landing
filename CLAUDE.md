@@ -1,1 +1,1 @@
-@AGENTS.md
+Claude Code loads CLAUDE.md by convention. All development guidelines for this project live in AGENTS.md. Read it before making changes. It is prose-first: for concrete patterns, mirror existing code elsewhere in this app rather than inventing new wiring.

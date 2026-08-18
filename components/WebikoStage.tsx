@@ -1,188 +1,34 @@
 "use client";
 
-import type {
-  FormEvent,
-  MouseEvent as ReactMouseEvent,
-} from "react";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CONTACT_COPY, type ViewId } from "@/lib/copy";
+import { useGsapRef, usePrefersReducedMotion } from "@/lib/hooks";
+import ContactPanel from "./ContactPanel";
+import Hamburger from "./Hamburger";
+import Hero from "./Hero";
+import MorphClone, { type MorphState } from "./MorphClone";
+import NavMenu from "./NavMenu";
 import styles from "./WebikoStage.module.css";
 
-const WORD = "webiko.dev";
-const LETTER_COUNT = WORD.length;
-const SPAN_RATIO = 0.72;
-// On touch devices, cycle the bold highlight through this range instead of
-// following a cursor — keeps it a full 3-letter band (center ± 1) rather
-// than clipping to 2 letters at the word's edges.
-const AUTO_HIGHLIGHT_MIN = 1;
-const AUTO_HIGHLIGHT_MAX = LETTER_COUNT - 2;
-const AUTO_HIGHLIGHT_INTERVAL_MS = 2000;
-const MENU_ITEMS = ["Services", "Work", "Contact"] as const;
-type MenuLabel = (typeof MENU_ITEMS)[number];
-type ViewId = "services" | "work" | "contact";
-
-const SERVICES = [
-  {
-    title: "Design → code",
-    description:
-      "Pixel-perfect, every time — spacing, motion and states matched to the file, not eyeballed.",
-  },
-  {
-    title: "Rapid prototyping",
-    description:
-      "Blank canvas to a clickable build in days. Fast enough to test an idea before it's fully specced.",
-  },
-  {
-    title: "WordPress",
-    description:
-      "Custom themes, plugins and headless builds — we've shipped more WordPress sites than we can count.",
-  },
-  {
-    title: "Laravel",
-    description:
-      "Full-stack PHP, battle-tested since Laravel 6. APIs, admin panels, queues — the plumbing that keeps things running.",
-  },
-  {
-    title: "React & frontend architecture",
-    description:
-      "One of us led a React team before we started Webiko. Component systems and state built to be handed off, not just handed in.",
-  },
-] as const;
-
-const WORK_STACK = [
-  "WordPress",
-  "Laravel",
-  "PHP",
-  "React",
-  "Next.js",
-  "TypeScript",
-  "Figma → code",
-] as const;
-
-type MorphState = {
-  label: string;
-  left: number;
-  top: number;
-  fontSize: number;
-};
-
-// The overlay's leading (left) edge is animated as several independent
-// points rather than one straight line, so it ripples in like a dropped
-// sheet instead of sliding on rails.
-const SHEET_EDGE_POINTS = 7;
-const SHEET_CLOSED_X = 130;
-const SHEET_OPEN_X = 0;
-
-type SheetPoint = { x: number; y: number };
-
-function makeSheetPoints(x: number): SheetPoint[] {
-  return Array.from({ length: SHEET_EDGE_POINTS }, (_, i) => ({
-    x,
-    y: (i / (SHEET_EDGE_POINTS - 1)) * 100,
-  }));
-}
-
-function sheetClipPath(points: SheetPoint[]) {
-  const edge = [...points]
-    .reverse()
-    .map((p) => `${p.x}% ${p.y}%`)
-    .join(", ");
-  return `polygon(100% 0%, 100% 100%, ${edge})`;
-}
-
-type GsapModule = (typeof import("gsap"))["gsap"];
-
-function getLayout(width: number) {
-  const startX = (width * (1 - SPAN_RATIO)) / 2;
-  const letterStep =
-    LETTER_COUNT > 1
-      ? (width * SPAN_RATIO) / (LETTER_COUNT - 1)
-      : width * SPAN_RATIO;
-  return { startX, letterStep };
-}
-
-const REDUCED_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
-
-function subscribeReducedMotion(callback: () => void) {
-  const mql = window.matchMedia(REDUCED_MOTION_QUERY);
-  mql.addEventListener("change", callback);
-  return () => mql.removeEventListener("change", callback);
-}
-
-function getReducedMotionSnapshot() {
-  return window.matchMedia(REDUCED_MOTION_QUERY).matches;
-}
-
-function getReducedMotionServerSnapshot() {
-  return false;
-}
-
-function usePrefersReducedMotion() {
-  return useSyncExternalStore(
-    subscribeReducedMotion,
-    getReducedMotionSnapshot,
-    getReducedMotionServerSnapshot,
-  );
-}
-
-// Touch-primary devices (phones, most tablets) never fire the mousemove
-// that drives the letter-weight effect, so `activated` stays false forever
-// there. `(hover: none) and (pointer: coarse)` is the standard way to
-// detect "no persistent pointer" without guessing from viewport width,
-// which would also misfire on a narrow desktop window.
-const COARSE_POINTER_QUERY = "(hover: none) and (pointer: coarse)";
-
-function subscribeCoarsePointer(callback: () => void) {
-  const mql = window.matchMedia(COARSE_POINTER_QUERY);
-  mql.addEventListener("change", callback);
-  return () => mql.removeEventListener("change", callback);
-}
-
-function getCoarsePointerSnapshot() {
-  return window.matchMedia(COARSE_POINTER_QUERY).matches;
-}
-
-function getCoarsePointerServerSnapshot() {
-  return false;
-}
-
-function useCoarsePointer() {
-  return useSyncExternalStore(
-    subscribeCoarsePointer,
-    getCoarsePointerSnapshot,
-    getCoarsePointerServerSnapshot,
-  );
-}
-
+// This is the page's orchestrator: it owns every piece of state that spans
+// more than one visual part (pointer tracking, view/reveal transitions,
+// the contact form's network request) and composes the presentational
+// components below. Each of those owns its own self-contained animation
+// (letter drag/zoom, menu ripple) internally — see their own files.
 export default function WebikoStage() {
-  const stageRef = useRef<HTMLDivElement | null>(null);
-  const wordRef = useRef<HTMLHeadingElement | null>(null);
   const morphRef = useRef<HTMLDivElement | null>(null);
-  const overlayRef = useRef<HTMLElement | null>(null);
-  const letterRefs = useRef<Array<HTMLSpanElement | null>>([]);
-  const gsapRef = useRef<GsapModule | null>(null);
-  const sheetPointsRef = useRef<SheetPoint[]>(makeSheetPoints(SHEET_CLOSED_X));
-
+  const gsapRef = useGsapRef();
   const reducedMotion = usePrefersReducedMotion();
-  const coarsePointer = useCoarsePointer();
 
   const [viewport, setViewport] = useState({ width: 1200, height: 800 });
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(
     null,
   );
   const [activated, setActivated] = useState(false);
-  const [autoHighlight, setAutoHighlight] = useState(AUTO_HIGHLIGHT_MIN);
   const [order, setOrder] = useState<number[] | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
-  const [hamHover, setHamHover] = useState(false);
-  const [menuWeights, setMenuWeights] = useState<number[]>([300, 300, 300]);
 
   const [activeView, setActiveView] = useState<ViewId | null>(null);
   const [heroHidden, setHeroHidden] = useState(false);
@@ -198,31 +44,6 @@ export default function WebikoStage() {
   const nextPointer = useRef<{ x: number; y: number } | null>(null);
   const totalMove = useRef(0);
 
-  const dragRef = useRef<{
-    dragging: boolean;
-    el: HTMLSpanElement | null;
-    slot: number | null;
-    startX: number;
-    startY: number;
-  }>({ dragging: false, el: null, slot: null, startX: 0, startY: 0 });
-  const pointerXRef = useRef<number | null>(null);
-
-  const scaleAccumRef = useRef(1);
-  const wheelTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const heroHiddenRef = useRef(false);
-
-  // Load GSAP off the critical path — it's only needed once the visitor
-  // interacts, so it shouldn't block first paint / TBT.
-  useEffect(() => {
-    let cancelled = false;
-    import("gsap").then((mod) => {
-      if (!cancelled) gsapRef.current = mod.gsap;
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   useEffect(() => {
     const update = () =>
       setViewport({ width: window.innerWidth, height: window.innerHeight });
@@ -231,46 +52,18 @@ export default function WebikoStage() {
     return () => window.removeEventListener("resize", update);
   }, []);
 
+  // Cancel any in-flight rAF from handlePointerMove on unmount.
   useEffect(() => {
-    heroHiddenRef.current = heroHidden;
-  }, [heroHidden]);
-
-  // No cursor to drive the letter-weight effect on touch devices, so jump
-  // the bold band to a random spot on a timer instead. Real pointer input
-  // (the rare mouse+touch hybrid) still wins once `activated` flips true,
-  // via the centerIndex fallback order below.
-  useEffect(() => {
-    if (!coarsePointer || reducedMotion || heroHidden || activated) return;
-    const id = setInterval(() => {
-      setAutoHighlight((prev) => {
-        const span = AUTO_HIGHLIGHT_MAX - AUTO_HIGHLIGHT_MIN;
-        if (span <= 0) return prev;
-        // Re-roll on a repeat so every tick is a visible change.
-        let next = prev;
-        while (next === prev) {
-          next = AUTO_HIGHLIGHT_MIN + Math.floor(Math.random() * (span + 1));
-        }
-        return next;
-      });
-    }, AUTO_HIGHLIGHT_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [coarsePointer, reducedMotion, heroHidden, activated]);
-
-  const slotFromX = useCallback((x: number) => {
-    let best = 0;
-    let bestDist = Infinity;
-    letterRefs.current.forEach((el, i) => {
-      if (!el) return;
-      const rect = el.getBoundingClientRect();
-      const dist = Math.abs(x - (rect.left + rect.width / 2));
-      if (dist < bestDist) {
-        bestDist = dist;
-        best = i;
-      }
-    });
-    return best;
+    return () => {
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
+    };
   }, []);
 
+  // Pointer tracking has to live here rather than inside Hero: this handler
+  // is attached to the full-viewport stage element below, and Hero's own
+  // root has pointer-events:none over everything except the letters
+  // themselves (see Hero.module.css), so it can't see pointer movement
+  // over the rest of the page.
   const handlePointerMove = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
     const x = e.clientX;
     const y = e.clientY;
@@ -290,146 +83,24 @@ export default function WebikoStage() {
     }
   }, []);
 
-  // Window-level drag physics + wheel zoom pulse. These mutate the DOM
-  // directly through GSAP rather than React state, so a drag doesn't
-  // trigger a re-render on every pointer move.
-  useEffect(() => {
-    const onMove = (e: MouseEvent) => {
-      pointerXRef.current = e.clientX;
-      const drag = dragRef.current;
-      if (!drag.dragging || !drag.el || !gsapRef.current) return;
-      const dx = e.clientX - drag.startX;
-      const dy = e.clientY - drag.startY;
-      gsapRef.current.set(drag.el, { x: dx, y: dy * 0.4, rotation: dx * 0.04 });
-    };
-
-    const onUp = () => {
-      const drag = dragRef.current;
-      if (!drag.dragging) return;
-      drag.dragging = false;
-      const el = drag.el;
-      const fromSlot = drag.slot;
-      if (el) {
-        if (gsapRef.current) {
-          gsapRef.current.to(el, {
-            x: 0,
-            y: 0,
-            rotation: 0,
-            duration: reducedMotion ? 0 : 0.7,
-            ease: "elastic.out(1, 0.4)",
-          });
-        } else {
-          el.style.transform = "";
-        }
-      }
-      if (fromSlot != null && pointerXRef.current != null) {
-        const toSlot = slotFromX(pointerXRef.current);
-        if (toSlot !== fromSlot) {
-          setOrder((prev) => {
-            const base =
-              prev ?? Array.from({ length: LETTER_COUNT }, (_, i) => i);
-            const next = base.slice();
-            const tmp = next[fromSlot]!;
-            next[fromSlot] = next[toSlot]!;
-            next[toSlot] = tmp;
-            return next;
-          });
-        }
-      }
-      drag.el = null;
-      drag.slot = null;
-    };
-
-    const onWheel = (e: WheelEvent) => {
-      // A panel (Services/Work/Contact) is open over the hero — let the
-      // browser scroll it natively instead of hijacking the wheel for the
-      // wordmark's zoom pulse.
-      if (heroHiddenRef.current) return;
-      const gsapMod = gsapRef.current;
-      if (!gsapMod) return;
-      e.preventDefault();
-      const wordEl = wordRef.current;
-      if (!wordEl) return;
-      scaleAccumRef.current = Math.max(
-        0.6,
-        Math.min(1.8, scaleAccumRef.current - e.deltaY * 0.0012),
-      );
-      gsapMod.set(wordEl, { scale: scaleAccumRef.current });
-      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
-      wheelTimerRef.current = setTimeout(() => {
-        gsapMod.to(wordEl, {
-          scale: 1,
-          duration: reducedMotion ? 0 : 1.1,
-          ease: "elastic.out(1, 0.25)",
-        });
-        scaleAccumRef.current = 1;
-      }, 150);
-    };
-
-    window.addEventListener("mousemove", onMove);
-    window.addEventListener("mouseup", onUp);
-    const stageEl = stageRef.current;
-    stageEl?.addEventListener("wheel", onWheel, { passive: false });
-
-    return () => {
-      window.removeEventListener("mousemove", onMove);
-      window.removeEventListener("mouseup", onUp);
-      stageEl?.removeEventListener("wheel", onWheel);
-      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
-      if (wheelTimerRef.current) clearTimeout(wheelTimerRef.current);
-    };
-  }, [reducedMotion, slotFromX]);
-
-  const startDrag = useCallback(
-    (e: ReactMouseEvent<HTMLSpanElement>, slot: number) => {
-      const el = e.currentTarget;
-      dragRef.current = {
-        dragging: true,
-        el,
-        slot,
-        startX: e.clientX,
-        startY: e.clientY,
-      };
-      pointerXRef.current = e.clientX;
-      gsapRef.current?.killTweensOf(el);
-    },
-    [],
-  );
-
   const resetOrder = useCallback(() => setOrder(null), []);
   const toggleMenu = useCallback(() => setMenuOpen((v) => !v), []);
 
-  const itemEnter = useCallback((i: number) => {
-    const options = [500, 600, 700, 800, 900];
-    const target =
-      options[Math.floor(Math.random() * options.length)] ?? 500;
-    setMenuWeights((prev) => {
-      const next = prev.slice();
-      next[i] = target;
-      return next;
-    });
-  }, []);
-
-  const itemLeave = useCallback((i: number) => {
-    setMenuWeights((prev) => {
-      const next = prev.slice();
-      next[i] = 300;
-      return next;
-    });
-  }, []);
-
   const selectView = useCallback(
-    (label: MenuLabel, e: ReactMouseEvent<HTMLButtonElement>) => {
+    (
+      item: { id: ViewId; label: string },
+      e: ReactMouseEvent<HTMLButtonElement>,
+    ) => {
       const rect = e.currentTarget.getBoundingClientRect();
       const cs = window.getComputedStyle(e.currentTarget);
       setMenuOpen(false);
       setHeroHidden(true);
-      setActiveView(label.toLowerCase() as ViewId);
+      setActiveView(item.id);
       setRevealed(false);
       setSubmitted(false);
       setSubmitError(null);
       setMorph({
-        label,
+        label: item.label,
         left: rect.left,
         top: rect.top,
         fontSize: parseFloat(cs.fontSize),
@@ -473,32 +144,7 @@ export default function WebikoStage() {
     return () => {
       tween.kill();
     };
-  }, [morph, reducedMotion]);
-
-  // Ripple the menu overlay's leading edge open/closed like a dropped
-  // sheet: each point along the edge settles independently instead of the
-  // whole edge moving as one rigid line.
-  useEffect(() => {
-    const gsapMod = gsapRef.current;
-    const el = overlayRef.current;
-    if (!gsapMod || !el) return;
-
-    const points = sheetPointsRef.current;
-    const targetX = menuOpen ? SHEET_OPEN_X : SHEET_CLOSED_X;
-
-    const tween = gsapMod.to(points, {
-      x: targetX,
-      duration: reducedMotion ? 0 : 0.75,
-      ease: reducedMotion ? "none" : "elastic.out(1, 0.5)",
-      stagger: reducedMotion ? 0 : { each: 0.05, from: "start" },
-      onUpdate: () => {
-        el.style.clipPath = sheetClipPath(points);
-      },
-    });
-    return () => {
-      tween.kill();
-    };
-  }, [menuOpen, reducedMotion]);
+  }, [morph, reducedMotion, gsapRef]);
 
   const closeContact = useCallback(() => {
     setActiveView(null);
@@ -526,32 +172,15 @@ export default function WebikoStage() {
       if (!res.ok) throw new Error("request_failed");
       setSubmitted(true);
     } catch {
-      setSubmitError(
-        "Something went wrong — please try again, or email us directly.",
-      );
+      setSubmitError(CONTACT_COPY.error);
     } finally {
       setSubmitting(false);
     }
   }, []);
 
   const { width, height } = viewport;
-  const { startX, letterStep } = useMemo(() => getLayout(width), [width]);
-  const baseOrder = useMemo(
-    () => Array.from({ length: LETTER_COUNT }, (_, i) => i),
-    [],
-  );
-  const activeOrder = order ?? baseOrder;
-
   const mx = pointer?.x ?? width / 2;
   const my = pointer?.y ?? height / 2;
-
-  const rawIndex = LETTER_COUNT > 1 ? (mx - startX) / letterStep : 0;
-  const centerIndex = activated
-    ? Math.round(Math.max(0, Math.min(LETTER_COUNT - 1, rawIndex)))
-    : coarsePointer
-      ? autoHighlight
-      : 8;
-
   const nx = Math.min(1, Math.max(0, mx / width));
   const ny = Math.min(1, Math.max(0, my / height));
   const hue = 95 + nx * 25;
@@ -559,18 +188,8 @@ export default function WebikoStage() {
   const chroma = 0.012 + (1 - Math.abs(nx - 0.5) * 2) * 0.02;
   const bgColor = `oklch(${light.toFixed(1)}% ${chroma.toFixed(3)} ${hue.toFixed(1)})`;
 
-  const headingText =
-    activeView === "services"
-      ? "Services"
-      : activeView === "work"
-        ? "Work"
-        : activeView === "contact"
-          ? "Contact"
-          : "";
-
   return (
     <div
-      ref={stageRef}
       className={styles.stage}
       onMouseMove={handlePointerMove}
       onDoubleClick={resetOrder}
@@ -581,235 +200,30 @@ export default function WebikoStage() {
         aria-hidden="true"
       />
 
-      <div
-        className={styles.hero}
-        style={{ opacity: heroHidden ? 0 : 1 }}
-        inert={heroHidden}
-      >
-        <h1 ref={wordRef} className={styles.word} aria-label={WORD}>
-          {activeOrder.map((charIndex, i) => {
-            const ch = WORD.charAt(charIndex);
-            const indexDist = Math.abs(i - centerIndex);
-            const weight = indexDist <= 1 ? 900 : 150;
-            return (
-              <span
-                key={charIndex}
-                ref={(el) => {
-                  letterRefs.current[i] = el;
-                }}
-                className={styles.letter}
-                aria-hidden="true"
-                onMouseDown={(e) => startDrag(e, i)}
-                style={{
-                  fontVariationSettings: `'wght' ${weight}`,
-                  fontWeight: weight,
-                  textShadow:
-                    weight >= 900
-                      ? "0 0 10px rgba(255,255,255,0.5), 0 0 24px rgba(255,255,255,0.22)"
-                      : "0 0 0 rgba(255,255,255,0)",
-                }}
-              >
-                {ch}
-              </span>
-            );
-          })}
-        </h1>
-      </div>
+      <Hero
+        pointer={pointer}
+        activated={activated}
+        viewport={viewport}
+        hidden={heroHidden}
+        order={order}
+        onReorder={setOrder}
+      />
 
-      <div
-        className={styles.contactPanel}
-        style={{
-          opacity: revealed ? 1 : 0,
-          pointerEvents: revealed ? "auto" : "none",
-        }}
-        inert={!revealed}
-      >
-        <button type="button" className={styles.backBtn} onClick={closeContact}>
-          &#8592; Back
-        </button>
+      <ContactPanel
+        activeView={activeView}
+        revealed={revealed}
+        onBack={closeContact}
+        submitting={submitting}
+        submitted={submitted}
+        submitError={submitError}
+        onSubmit={handleSubmit}
+      />
 
-        {activeView && (
-          <>
-            <h2 className={styles.heading} style={{ opacity: revealed ? 1 : 0 }}>
-              {headingText}
-            </h2>
+      <MorphClone morph={morph} morphRef={morphRef} />
 
-            {activeView === "services" && (
-              <ul className={styles.serviceList}>
-                {SERVICES.map((service) => (
-                  <li key={service.title} className={styles.serviceItem}>
-                    <span className={styles.serviceTitle}>
-                      {service.title}
-                    </span>
-                    <span className={styles.serviceDesc}>
-                      {service.description}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
+      <Hamburger open={menuOpen} onToggle={toggleMenu} />
 
-            {activeView === "work" && (
-              <>
-                <p className={styles.workIntro}>
-                  Webiko is a micro team — a couple of us, not an agency
-                  with layers between you and the code. Between us: agency
-                  work, product work, a stint leading a React team, and
-                  years split across WordPress, Laravel and React. Small
-                  enough to move fast, senior enough to skip the
-                  hand-holding.
-                </p>
-                <ul className={styles.tagList}>
-                  {WORK_STACK.map((tag) => (
-                    <li key={tag} className={styles.tag}>
-                      {tag}
-                    </li>
-                  ))}
-                </ul>
-                <p className={styles.workNote}>
-                  Full case studies are on their way. In the meantime, get in
-                  touch and we&apos;ll walk you through recent work directly.
-                </p>
-              </>
-            )}
-
-            {activeView === "contact" &&
-              (submitted ? (
-                <p className={styles.tbd}>Thanks — we&apos;ll be in touch.</p>
-              ) : (
-                <div className={styles.formWrap}>
-                  <p className={styles.contactIntro}>
-                    Got a project, or just a question? You&apos;ll hear back
-                    from one of us directly — no account managers in
-                    between.
-                  </p>
-                  <form className={styles.form} onSubmit={handleSubmit}>
-                    <label className="visually-hidden" htmlFor="contact-name">
-                      Name
-                    </label>
-                    <input
-                      id="contact-name"
-                      name="name"
-                      placeholder="Name"
-                      autoComplete="name"
-                      required
-                      className={styles.input}
-                    />
-
-                    <label className="visually-hidden" htmlFor="contact-email">
-                      Email
-                    </label>
-                    <input
-                      id="contact-email"
-                      name="email"
-                      type="email"
-                      placeholder="Email"
-                      autoComplete="email"
-                      required
-                      className={styles.input}
-                    />
-
-                    <label className="visually-hidden" htmlFor="contact-message">
-                      Message
-                    </label>
-                    <textarea
-                      id="contact-message"
-                      name="message"
-                      placeholder="Message"
-                      rows={4}
-                      required
-                      className={styles.textarea}
-                    />
-
-                    {submitError && (
-                      <p className={styles.formError} role="alert">
-                        {submitError}
-                      </p>
-                    )}
-
-                    <button
-                      type="submit"
-                      className={styles.submitBtn}
-                      disabled={submitting}
-                    >
-                      {submitting ? "Sending…" : "Send"}
-                    </button>
-                  </form>
-                </div>
-              ))}
-          </>
-        )}
-      </div>
-
-      {morph && (
-        <div
-          ref={morphRef}
-          aria-hidden="true"
-          className={styles.morph}
-          style={{ left: morph.left, top: morph.top, fontSize: morph.fontSize }}
-        >
-          {morph.label}
-        </div>
-      )}
-
-      <button
-        type="button"
-        className={`${styles.ham} ${hamHover || menuOpen ? styles.hamHover : ""}`}
-        onClick={toggleMenu}
-        onMouseEnter={() => setHamHover(true)}
-        onMouseLeave={() => setHamHover(false)}
-        aria-expanded={menuOpen}
-        aria-controls="webiko-menu"
-        aria-label={menuOpen ? "Close menu" : "Open menu"}
-      >
-        <span className={styles.hamLines} aria-hidden="true">
-          <span
-            className={styles.hamLine}
-            style={{
-              transform: menuOpen ? "translateY(8px) rotate(45deg)" : "none",
-            }}
-          />
-          <span
-            className={styles.hamLine}
-            style={{ opacity: menuOpen ? 0 : 1 }}
-          />
-          <span
-            className={styles.hamLine}
-            style={{
-              transform: menuOpen ? "translateY(-8px) rotate(-45deg)" : "none",
-            }}
-          />
-        </span>
-      </button>
-
-      <nav
-        ref={overlayRef}
-        id="webiko-menu"
-        className={`${styles.overlay} ${menuOpen ? styles.overlayOpen : ""}`}
-        aria-label="Main"
-        inert={!menuOpen}
-      >
-        {MENU_ITEMS.map((label, i) => {
-          const weight = menuWeights[i] ?? 300;
-          return (
-            <button
-              type="button"
-              key={label}
-              className={`${styles.menuItem} ${menuOpen ? styles.menuItemOpen : ""}`}
-              style={{
-                fontVariationSettings: `'wght' ${weight}`,
-                fontWeight: weight,
-                transitionDelay: `${i * 70}ms, ${i * 70}ms, 0ms`,
-              }}
-              onClick={(e) => selectView(label, e)}
-              onMouseEnter={() => itemEnter(i)}
-              onMouseLeave={() => itemLeave(i)}
-            >
-              {label}
-            </button>
-          );
-        })}
-      </nav>
+      <NavMenu open={menuOpen} onSelect={selectView} />
     </div>
   );
 }

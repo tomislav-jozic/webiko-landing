@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import WebikoStage from "@/components/WebikoStage";
+import { HERO_WORD, NOSCRIPT_MESSAGE } from "@/lib/copy";
 import { SITE_DESCRIPTION, SITE_TITLE } from "@/lib/site";
 
 export const metadata: Metadata = {
@@ -32,9 +33,9 @@ export default function Home() {
           }}
         >
           <h1 style={{ fontSize: "clamp(32px, 8vw, 64px)", fontWeight: 300 }}>
-            webiko.dev
+            {HERO_WORD}
           </h1>
-          <p>Please enable JavaScript to view this site.</p>
+          <p>{NOSCRIPT_MESSAGE}</p>
         </div>
       </noscript>
     </>

@@ -1,0 +1,9 @@
+.morph {
+  position: fixed;
+  font-weight: 300;
+  font-family: inherit;
+  color: #ffffff;
+  z-index: 40;
+  pointer-events: none;
+  white-space: nowrap;
+}

@@ -1,0 +1,44 @@
+.contactPanel {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding-left: 8vw;
+  padding-right: 8vw;
+  padding-top: 26vh;
+  padding-bottom: 64px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  transition: opacity 600ms ease;
+}
+
+.backBtn {
+  position: fixed;
+  top: 40px;
+  left: 32px;
+  z-index: 20;
+  color: #ffffff;
+  font: inherit;
+  font-size: 15px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  opacity: 0.75;
+  padding: 8px;
+  margin: -8px;
+}
+
+.backBtn:hover {
+  opacity: 1;
+}
+
+.heading {
+  color: #ffffff;
+  font-size: clamp(32px, 5vw, 56px);
+  font-weight: 300;
+  margin: 0 0 32px;
+  transition: opacity 500ms ease;
+}
