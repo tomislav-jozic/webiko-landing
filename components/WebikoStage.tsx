@@ -17,6 +17,12 @@ import styles from "./WebikoStage.module.css";
 const WORD = "webiko.dev";
 const LETTER_COUNT = WORD.length;
 const SPAN_RATIO = 0.72;
+// On touch devices, cycle the bold highlight through this range instead of
+// following a cursor — keeps it a full 3-letter band (center ± 1) rather
+// than clipping to 2 letters at the word's edges.
+const AUTO_HIGHLIGHT_MIN = 1;
+const AUTO_HIGHLIGHT_MAX = LETTER_COUNT - 2;
+const AUTO_HIGHLIGHT_INTERVAL_MS = 2000;
 const MENU_ITEMS = ["Services", "Work", "Contact"] as const;
 type MenuLabel = (typeof MENU_ITEMS)[number];
 type ViewId = "services" | "work" | "contact";
@@ -125,6 +131,35 @@ function usePrefersReducedMotion() {
   );
 }
 
+// Touch-primary devices (phones, most tablets) never fire the mousemove
+// that drives the letter-weight effect, so `activated` stays false forever
+// there. `(hover: none) and (pointer: coarse)` is the standard way to
+// detect "no persistent pointer" without guessing from viewport width,
+// which would also misfire on a narrow desktop window.
+const COARSE_POINTER_QUERY = "(hover: none) and (pointer: coarse)";
+
+function subscribeCoarsePointer(callback: () => void) {
+  const mql = window.matchMedia(COARSE_POINTER_QUERY);
+  mql.addEventListener("change", callback);
+  return () => mql.removeEventListener("change", callback);
+}
+
+function getCoarsePointerSnapshot() {
+  return window.matchMedia(COARSE_POINTER_QUERY).matches;
+}
+
+function getCoarsePointerServerSnapshot() {
+  return false;
+}
+
+function useCoarsePointer() {
+  return useSyncExternalStore(
+    subscribeCoarsePointer,
+    getCoarsePointerSnapshot,
+    getCoarsePointerServerSnapshot,
+  );
+}
+
 export default function WebikoStage() {
   const stageRef = useRef<HTMLDivElement | null>(null);
   const wordRef = useRef<HTMLHeadingElement | null>(null);
@@ -135,12 +170,14 @@ export default function WebikoStage() {
   const sheetPointsRef = useRef<SheetPoint[]>(makeSheetPoints(SHEET_CLOSED_X));
 
   const reducedMotion = usePrefersReducedMotion();
+  const coarsePointer = useCoarsePointer();
 
   const [viewport, setViewport] = useState({ width: 1200, height: 800 });
   const [pointer, setPointer] = useState<{ x: number; y: number } | null>(
     null,
   );
   const [activated, setActivated] = useState(false);
+  const [autoHighlight, setAutoHighlight] = useState(AUTO_HIGHLIGHT_MIN);
   const [order, setOrder] = useState<number[] | null>(null);
 
   const [menuOpen, setMenuOpen] = useState(false);
@@ -197,6 +234,27 @@ export default function WebikoStage() {
   useEffect(() => {
     heroHiddenRef.current = heroHidden;
   }, [heroHidden]);
+
+  // No cursor to drive the letter-weight effect on touch devices, so jump
+  // the bold band to a random spot on a timer instead. Real pointer input
+  // (the rare mouse+touch hybrid) still wins once `activated` flips true,
+  // via the centerIndex fallback order below.
+  useEffect(() => {
+    if (!coarsePointer || reducedMotion || heroHidden || activated) return;
+    const id = setInterval(() => {
+      setAutoHighlight((prev) => {
+        const span = AUTO_HIGHLIGHT_MAX - AUTO_HIGHLIGHT_MIN;
+        if (span <= 0) return prev;
+        // Re-roll on a repeat so every tick is a visible change.
+        let next = prev;
+        while (next === prev) {
+          next = AUTO_HIGHLIGHT_MIN + Math.floor(Math.random() * (span + 1));
+        }
+        return next;
+      });
+    }, AUTO_HIGHLIGHT_INTERVAL_MS);
+    return () => clearInterval(id);
+  }, [coarsePointer, reducedMotion, heroHidden, activated]);
 
   const slotFromX = useCallback((x: number) => {
     let best = 0;
@@ -490,7 +548,9 @@ export default function WebikoStage() {
   const rawIndex = LETTER_COUNT > 1 ? (mx - startX) / letterStep : 0;
   const centerIndex = activated
     ? Math.round(Math.max(0, Math.min(LETTER_COUNT - 1, rawIndex)))
-    : 8;
+    : coarsePointer
+      ? autoHighlight
+      : 8;
 
   const nx = Math.min(1, Math.max(0, mx / width));
   const ny = Math.min(1, Math.max(0, my / height));
