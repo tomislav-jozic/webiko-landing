@@ -1,9 +1,9 @@
 import type { FormEvent } from "react";
 import { NAV_ITEMS, NAV_LABELS, type ViewId } from "@/lib/copy";
-import ContactForm from "./ContactForm";
+import ContactForm from "../ContactForm";
+import ServicesList from "../ServicesList";
+import WorkSection from "../WorkSection";
 import styles from "./ContactPanel.module.css";
-import ServicesList from "./ServicesList";
-import WorkSection from "./WorkSection";
 
 type Props = {
   activeView: ViewId | null;

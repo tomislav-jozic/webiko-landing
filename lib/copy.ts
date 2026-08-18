@@ -31,7 +31,7 @@ export const SERVICES: ReadonlyArray<{ title: string; description: string }> = [
   {
     title: "WordPress",
     description:
-      "Custom themes, plugins and headless builds — we've shipped more WordPress sites than we can count.",
+      "Custom themes, plugins and headless builds — I've shipped more WordPress sites than I can count.",
   },
   {
     title: "Laravel",
@@ -41,7 +41,7 @@ export const SERVICES: ReadonlyArray<{ title: string; description: string }> = [
   {
     title: "React & frontend architecture",
     description:
-      "One of us led a React team before we started Webiko. Component systems and state built to be handed off, not just handed in.",
+      "Led a React team before going independent. Component systems and state built to be handed off, not just handed in.",
   },
 ];
 
@@ -57,15 +57,15 @@ export const WORK_STACK: readonly string[] = [
 
 export const WORK_COPY = {
   intro:
-    "Webiko is a micro team — a couple of us, not an agency with layers between you and the code. Between us: agency work, product work, a stint leading a React team, and years split across WordPress, Laravel and React. Small enough to move fast, senior enough to skip the hand-holding.",
-  note: "Full case studies are on their way. In the meantime, get in touch and we'll walk you through recent work directly.",
+    "Webiko is built around one senior developer — not an agency with layers between you and the code. Agency work, product work, a stint leading a React team, and close, trusted partners on call when a project needs more hands. Small enough to move fast, senior enough to skip the hand-holding.",
+  note: "Full case studies are on their way. In the meantime, get in touch and I'll walk you through recent work directly.",
 };
 
 export const CONTACT_COPY = {
   intro:
-    "Got a project, or just a question? You'll hear back from one of us directly — no account managers in between.",
-  thanks: "Thanks — we'll be in touch.",
-  error: "Something went wrong — please try again, or email us directly.",
+    "Got a project, or just a question? You'll hear back from me directly — no account managers in between.",
+  thanks: "Thanks — I'll be in touch.",
+  error: "Something went wrong — please try again, or email me directly.",
   nameLabel: "Name",
   emailLabel: "Email",
   messageLabel: "Message",

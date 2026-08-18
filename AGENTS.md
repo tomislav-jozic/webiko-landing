@@ -32,7 +32,7 @@ When multiple server requests do not depend on each other, run them in parallel 
 Early returns—if required data is missing or invalid, return notFound(), null, or an explicit empty/error UI immediately instead of nesting the happy path deeply.
 
 Client components and React behavior
-Presentation vs. orchestration—split "dumb" pieces (no assumptions about page layout, no reach-through into siblings' state) from the component that owns state and composes them. See components/WebikoStage.tsx (orchestrator) versus components/Hero.tsx, NavMenu.tsx, etc. (presentational, each with its own self-contained animation where one exists).
+Presentation vs. orchestration—split "dumb" pieces (no assumptions about page layout, no reach-through into siblings' state) from the component that owns state and composes them. See components/WebikoStage/ (orchestrator) versus components/Hero/, components/NavMenu/, etc. (presentational, each with its own self-contained animation where one exists).
 Rendering rules
 
 Render is pure—while rendering, do not update React state, do not call parent callbacks that set parent state, and do not trigger network or imperative side effects.
@@ -55,10 +55,10 @@ Do not export a separate MyComponentProps alias; consumers should use ComponentP
 
 Styling and layout
 Prefer flex/grid gap for spacing between siblings instead of stacking margins on each child.
-CSS Modules per component (Component.module.css), colocated with the component that uses it—no shared catch-all stylesheet. Inline style={} is reserved for values that are genuinely dynamic per frame or per state (see the letter-weight/position values in components/Hero.tsx), not a substitute for the module.
+CSS Modules per component (ComponentName/ComponentName.module.css), colocated inside that component's own folder—no shared catch-all stylesheet. Inline style={} is reserved for values that are genuinely dynamic per frame or per state (see the letter-weight/position values in components/Hero/index.tsx), not a substitute for the module.
 
 Naming conventions
-Components: PascalCase.
+Components: PascalCase directory with index.tsx as the component itself; a colocated ComponentName.module.css sits alongside it in the same directory.
 Booleans: is*, has*, should*.
 
 Logging
@@ -66,7 +66,7 @@ Add meaningful logs for operations that explain system behavior (failure to reco
 
 App source layout
 app/—App Router routes and layouts.
-components/—one component per file, each with its colocated Component.module.css.
+components/—one PascalCase folder per component (index.tsx + its colocated ComponentName.module.css). A component that imports a sibling reaches it via ../SiblingName (directory-index resolution), not ./SiblingName.
 lib/—shared constants (site.ts), copy (copy.ts), and hooks (hooks.ts).
 
 Collocated docs and repo metadata

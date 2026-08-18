@@ -4,11 +4,11 @@ import type { FormEvent, MouseEvent as ReactMouseEvent } from "react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CONTACT_COPY, type ViewId } from "@/lib/copy";
 import { useGsapRef, usePrefersReducedMotion } from "@/lib/hooks";
-import ContactPanel from "./ContactPanel";
-import Hamburger from "./Hamburger";
-import Hero from "./Hero";
-import MorphClone, { type MorphState } from "./MorphClone";
-import NavMenu from "./NavMenu";
+import ContactPanel from "../ContactPanel";
+import Hamburger from "../Hamburger";
+import Hero from "../Hero";
+import MorphClone, { type MorphState } from "../MorphClone";
+import NavMenu from "../NavMenu";
 import styles from "./WebikoStage.module.css";
 
 // This is the page's orchestrator: it owns every piece of state that spans
